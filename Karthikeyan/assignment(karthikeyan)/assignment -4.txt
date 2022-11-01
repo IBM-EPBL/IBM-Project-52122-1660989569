@@ -1,0 +1,145 @@
+
+1. Import Dataset
+from google.colab import drive
+drive.mount('/content/drive')
+Mounted at /content/drive
+2. Import Library
+import pandas as pd
+import nltk
+import re
+import numpy as np
+from nltk.corpus import stopwords
+from nltk.stem.porter import PorterStemmer
+from nltk.translate.ribes_score import word_rank_alignment
+from numpy.lib.shape_base import split
+from sklearn import preprocessing
+from sklearn.feature_extraction.text import CountVectorizer
+from tensorflow.keras.models import Sequential
+from sklearn.model_selection import train_test_split
+from keras.layers import LSTM,Dense,Dropout,Input,Embedding,Activation,Flatten
+from keras.models import Model
+cd/content/drive/MyDrive/Colab_Notebooks
+/content/drive/MyDrive/Colab_Notebooks
+3. Read dataset and do preprocessing
+df = pd.read_csv('/content/drive/MyDrive/Colab_Notebooks/spam.csv',delimiter=',',encoding='latin-1')
+df.head()
+v1	v2	Unnamed: 2	Unnamed: 3	Unnamed: 4
+0	ham	Go until jurong point, crazy.. Available only ...	NaN	NaN	NaN
+1	ham	Ok lar... Joking wif u oni...	NaN	NaN	NaN
+2	spam	Free entry in 2 a wkly comp to win FA Cup fina...	NaN	NaN	NaN
+3	ham	U dun say so early hor... U c already then say...	NaN	NaN	NaN
+4	ham	Nah I don't think he goes to usf, he lives aro...	NaN	NaN	NaN
+df.drop(['Unnamed: 2','Unnamed: 3', 'Unnamed: 4'],axis=1,inplace=True) 
+df.info()
+RangeIndex: 5572 entries, 0 to 5571
+Data columns (total 2 columns):
+ #   Column  Non-Null Count  Dtype 
+---  ------  --------------  ----- 
+ 0   v1      5572 non-null   object
+ 1   v2      5572 non-null   object
+dtypes: object(2)
+memory usage: 87.2+ KB
+nltk.download('stopwords',quiet=True)
+nltk.download('all',quiet=True)
+True
+ps = PorterStemmer()
+input = []
+for i in range(0,5572):
+  v2 = df['v2'][i]
+
+  #removing punctuation
+  v2 = re.sub('[^a-zA-Z]',' ',v2)
+
+  #converting to lower case
+  v2 = v2.lower()
+
+  #splitting the sentence
+  v2 = v2.split()
+
+  #removing the stopwords and stemming
+  v2 = [ps.stem(word) for word in v2 if not word in set(stopwords.words('english'))]
+
+  v2 = ' '.join(v2)
+
+  input.append(v2)
+cv = CountVectorizer(max_features=2000)
+x = cv.fit_transform(input).toarray()
+x.shape
+(5572, 2000)
+le = preprocessing.LabelEncoder()
+
+df['v1'] = le.fit_transform(df['v1'])
+df['v1'].unique()
+array([0, 1])
+y = df['v1'].values
+y = y.reshape(-1,1)
+x_train,x_test,y_train,y_test = train_test_split(x,y,test_size = 0.4)
+4. Model building - Adding layers, Compiling model and saving model
+model = Sequential()
+model.add(Dense(1565,activation = "relu"))
+model.add(Dense(3000,activation = "relu"))
+model.add(Dense(1,activation = "sigmoid"))
+model.add(Flatten())
+model.compile(optimizer = "adam",loss = "binary_crossentropy", metrics = ["accuracy"])
+model.fit(x_train,y_train,epochs = 15)
+Epoch 1/15
+105/105 [==============================] - 8s 64ms/step - loss: 0.1579 - accuracy: 0.9560
+Epoch 2/15
+105/105 [==============================] - 7s 64ms/step - loss: 0.0095 - accuracy: 0.9970
+Epoch 3/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0027 - accuracy: 0.9994
+Epoch 4/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0020 - accuracy: 0.9997
+Epoch 5/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0019 - accuracy: 0.9997
+Epoch 6/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0018 - accuracy: 0.9997
+Epoch 7/15
+105/105 [==============================] - 7s 68ms/step - loss: 0.0017 - accuracy: 0.9997
+Epoch 8/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0018 - accuracy: 0.9997
+Epoch 9/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0017 - accuracy: 0.9997
+Epoch 10/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0017 - accuracy: 0.9997
+Epoch 11/15
+105/105 [==============================] - 8s 72ms/step - loss: 0.0016 - accuracy: 0.9997
+Epoch 12/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0017 - accuracy: 0.9997
+Epoch 13/15
+105/105 [==============================] - 7s 67ms/step - loss: 0.0015 - accuracy: 0.9997
+Epoch 14/15
+105/105 [==============================] - 8s 74ms/step - loss: 0.0017 - accuracy: 0.9997
+Epoch 15/15
+105/105 [==============================] - 7s 63ms/step - loss: 0.0016 - accuracy: 0.9997
+model.save("spam-message-classifier.h5")
+5. Testing the model
+ham = "im donee. come pick me up"
+spam = "WINNER$$$$ SMS REPLY 'WIN'"
+message = re.sub('[^a-zA-Z]',' ',spam)
+message
+'WINNER     SMS REPLY  WIN '
+message = message.split()
+message = [ps.stem(word) for word in message if not word in set(stopwords.words('english')) ]
+message = ' '.join(message)
+message1 = cv.transform([message])
+message1
+<1x2000 sparse matrix of type ''
+	with 4 stored elements in Compressed Sparse Row format>
+TruePredction = model.predict(message1.astype(float))
+1/1 [==============================] - 0s 157ms/step
+TruePredction > 0.5
+array([[ True]])
+msg = re.sub('[^a-zA-Z]',' ',ham)
+msg
+'im donee  come pick me up'
+msg = msg.split()
+msg = [ps.stem(word) for word in msg if not word in set(stopwords.words('english'))]
+msg = ' '.join(msg)
+cv.transform([msg])
+<1x2000 sparse matrix of type ''
+	with 4 stored elements in Compressed Sparse Row format>
+FalsePredection = model.predict(cv.transform([msg]))
+1/1 [==============================] - 0s 85ms/step
+FalsePredection > 0.5
+array([[False]])
